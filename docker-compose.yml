@@ -1,0 +1,58 @@
+---
+version: "3.9"
+
+services:
+  database:
+    image: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=django
+      - POSTGRES_USER=django
+      - POSTGRES_PASSWORD=django
+    networks:
+      - backnet
+  backend:
+    build: ./lib_catalog
+    command: sh -c "python manage.py migrate; python manage.py loaddata bbk_data.json && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./lib_catalog:/code
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_NAME=django
+      - POSTGRES_USER=django
+      - POSTGRES_PASSWORD=django
+    networks:
+      - frontnet
+      - backnet
+    depends_on:
+      - database
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    networks:
+      - frontnet
+
+networks:
+  backnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.100.0.0/24
+          gateway: 10.100.0.1
+          aux_addresses:
+            db: 10.100.0.10
+            backend: 10.100.0.20
+  frontnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.100.1.0/24
+          gateway: 10.100.1.1
+          aux_addresses:
+            frontend: 10.100.1.10
+            backend: 10.100.1.20
